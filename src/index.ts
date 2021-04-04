@@ -1,19 +1,13 @@
-import {
-  Kaito,
-  Controller,
-  Get,
-  Post,
-  Schema,
-  KTX,
-  KRT,
-} from "@kaito-http/core";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import redis from "redis";
 import { promisify } from "util";
 import Color from "color";
+import express from "express";
 
 dotenv.config();
+const app = express();
+
 const client = redis.createClient({ port: 56379 });
 
 client.on("error", function (error) {
@@ -27,11 +21,21 @@ const setexAsync = promisify(client.setex).bind(client);
 // client.del("refresh_token");
 // client.del("access_token");
 
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:3000"); // update to match the domain you will make the request from
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  next();
+});
+
 type CurrentSongType = {
   id: string;
   name: string;
   artist: string;
   href: string;
+  album_cover: string;
 } | null;
 
 type SectionType = {
@@ -57,28 +61,18 @@ const headers = {
       `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
     ).toString("base64"),
 };
-
-@Controller("/spotify")
-class Home {
-  @Get("/")
-  async home(): KRT<{
-    success: boolean;
-    message: { song: CurrentSongType; gradient: any } | string;
-  }> {
-    const accessToken = await getAcessToken();
-    if (!!accessToken) {
-      const details = await getGradient(accessToken);
-      return {
-        body: {
-          success: !!details,
-          message: details
-            ? { song: details.song, gradient: details.gradient }
-            : "An unexpected error occured",
-        },
-      };
-    }
+app.get("/spotify", async (req, res) => {
+  const accessToken = await getAcessToken();
+  if (!!accessToken) {
+    const details = await getGradient(accessToken);
+    res.send({
+      success: !!details,
+      message: details
+        ? { song: details.song, gradient: details.gradient }
+        : "No song playing",
+    });
   }
-}
+});
 
 const getGradient: (
   token: string
@@ -100,19 +94,22 @@ const getGradient: (
 const calculateGradient = async (token: string, id: string) => {
   const audioFeatures = await getAudioFeatures(token, id);
   if (audioFeatures) {
+    let i = 0;
     const gradientArray = audioFeatures.sections.map((section: SectionType) => {
-      const hue = (section.tempo / 200) * 360;
+      const hue =
+        (section.tempo / 200) * 360 +
+        (section.tempo / section.loudness) * (15 * section.confidence);
       const saturation =
-        (section.loudness / -60) * 100 >= 100
+        ((section.loudness / -30) * 100 >= 100
           ? 100
-          : (section.loudness / -60) * 100;
-      const lightness = (section.key / 11) * 100;
+          : (section.loudness / -30) * 100) + 20;
+      const lightness = (section.key / 11) * 90;
+      i += parseFloat(
+        ((section.duration / audioFeatures.track.duration) * 100).toFixed(2)
+      );
       return {
         color: Color.hsl(hue, saturation, lightness).hex(),
-        length: (
-          (section.duration / audioFeatures.track.duration) *
-          100
-        ).toFixed(2),
+        position: i.toFixed(2),
       };
     });
     return gradientArray;
@@ -155,7 +152,8 @@ const getCurrentSong = async (token: string) => {
       id: response.item.id,
       name: response.item.name,
       artist: response.item.artists[0].name,
-      href: response.item.href,
+      href: response.item.external_urls.spotify,
+      album_cover: response.item.album.images[0].url,
     };
   } catch (e) {
     console.log(e);
@@ -220,7 +218,6 @@ const refreshTokenRequest = (refresh_token: string) => {
   });
 };
 
-const app = new Kaito({
-  controllers: [new Home()],
-  logging: true,
-}).listen(8080);
+app.listen(8080, () => {
+  console.log(`Example app listening at http://localhost:8080`);
+});
