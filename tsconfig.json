@@ -6,17 +6,15 @@
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
     "esModuleInterop": true,
     "module": "commonjs",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "experimentalDecorators": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "outDir": "dist"
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules"],
-  "rootDir": "src/",
-  "outDir": "dist/"
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
 }

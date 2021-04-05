@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "npx ts-node-dev src/index.ts",
-    "build": "npx tsc src/index.ts"
+    "build": "npx tsc"
   },
   "devDependencies": {
     "@types/color": "^3.0.1",
