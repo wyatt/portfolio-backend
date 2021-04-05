@@ -8,7 +8,16 @@ import express from "express";
 dotenv.config();
 const app = express();
 
-const client = redis.createClient({ port: 56379 });
+const redisConnect = () => {
+  try {
+    return redis.createClient({ url: process.env.REDIS_URL });
+  } catch (e) {
+    console.log(e);
+    process.exit();
+  }
+};
+
+const client = redisConnect();
 
 client.on("error", function (error) {
   console.error(error);
